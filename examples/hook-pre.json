@@ -1,0 +1,8 @@
+{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "src/example.ts",
+    "old_string": "export const value = 1;",
+    "new_string": "export const value = 2;"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "cc-context-telemetry",
+  "version": "0.1.0",
+  "description": "Token and context telemetry plus targeted compaction for Claude Code sessions.",
+  "type": "module",
+  "bin": {
+    "cc-context-telemetry": "./src/cli.ts"
+  },
+  "files": [
+    "src",
+    "examples",
+    "README.md",
+    "ARCHITECTURE.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint:generic": "node scripts/check-generic-content.mjs",
+    "check": "bun test && tsc --noEmit && node scripts/check-generic-content.mjs"
+  },
+  "keywords": [
+    "claude-code",
+    "telemetry",
+    "context",
+    "tokens",
+    "compaction",
+    "typescript",
+    "bun"
+  ],
+  "author": "cc-context-telemetry contributors",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "^1.3.2",
+    "typescript": "^5.9.2"
+  }
+}

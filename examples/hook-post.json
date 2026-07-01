@@ -1,0 +1,8 @@
+{
+  "tool_name": "Bash",
+  "tool_response": {
+    "stdout": "ok\n",
+    "stderr": "",
+    "interrupted": false
+  }
+}
