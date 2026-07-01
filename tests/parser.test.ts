@@ -44,6 +44,55 @@ describe("transcript parser", () => {
     expect(events[3]?.toolName).toBe("Write");
     expect(events[3]?.metadata.filePath).toBe("src/example.ts");
     expect(events[4]?.content).toContain("created");
+    expect(events[4]?.toolName).toBe("Write");
+  });
+
+  test("normalizes Claude Code transcript envelope records and skips metadata rows", () => {
+    const jsonl = [
+      JSON.stringify({
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Checking the file." },
+            {
+              type: "tool_use",
+              id: "toolu_1",
+              name: "Read",
+              input: { file_path: "src/example.ts" }
+            }
+          ]
+        }
+      }),
+      JSON.stringify({
+        type: "attachment",
+        attachment: { kind: "diagnostic" }
+      }),
+      JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "toolu_1",
+              content: "file contents"
+            }
+          ]
+        }
+      })
+    ].join("\n");
+
+    const events = parseJsonlTranscript(jsonl);
+
+    expect(events.map((event) => event.category)).toEqual([
+      "assistant-reasoning",
+      "tool-args",
+      "tool-result"
+    ]);
+    expect(events[1]?.toolName).toBe("Read");
+    expect(events[2]?.metadata.toolUseId).toBe("toolu_1");
+    expect(events[2]?.toolName).toBe("Read");
   });
 
   test("rejects malformed JSONL with line number context", () => {

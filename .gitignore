@@ -3,3 +3,6 @@ dist/
 coverage/
 .cc-context-telemetry/
 *.log
+
+.dogfood-results/
+.cc-context-telemetry/

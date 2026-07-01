@@ -12,6 +12,7 @@ type HookKind = "PreToolUse" | "PostToolUse";
 interface ParserState {
   nextTurn: number;
   source: "transcript" | "hook";
+  toolNamesByUseId: Map<string, string>;
 }
 
 const FILE_PAYLOAD_FIELDS = [
@@ -24,7 +25,11 @@ const FILE_PAYLOAD_FIELDS = [
 
 export function parseJsonlTranscript(input: string): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
-  const state: ParserState = { nextTurn: 1, source: "transcript" };
+  const state: ParserState = {
+    nextTurn: 1,
+    source: "transcript",
+    toolNamesByUseId: new Map()
+  };
 
   input
     .split(/\r?\n/)
@@ -49,7 +54,11 @@ export function normalizeHookPayload(
   kind: HookKind,
   payload: unknown
 ): NormalizedEvent[] {
-  const state: ParserState = { nextTurn: 1, source: "hook" };
+  const state: ParserState = {
+    nextTurn: 1,
+    source: "hook",
+    toolNamesByUseId: new Map()
+  };
   const record = assertRecord(payload, `${kind} payload`);
   const toolName = readToolName(record);
   const timestamp = new Date().toISOString();
@@ -106,12 +115,17 @@ function normalizeTranscriptRecord(
     }));
   }
 
-  const role = requiredString(record.role, "role");
+  const message = isRecord(record.message) ? record.message : record;
+  if (message === record && record.role === undefined) {
+    return [];
+  }
+
+  const role = requiredString(message.role, "role");
   if (!["system", "user", "assistant", "tool"].includes(role)) {
     throw new Error(`role must be one of system, user, assistant, or tool`);
   }
 
-  const rawContent = record.content;
+  const rawContent = message.content;
   const events: NormalizedEvent[] = [];
 
   if (typeof rawContent === "string") {
@@ -140,10 +154,10 @@ function normalizeTranscriptRecord(
     );
   }
 
-  for (const call of arrayField(record, "tool_calls")) {
+  for (const call of arrayField(message, "tool_calls")) {
     events.push(...normalizeToolCall(call, timestamp, state));
   }
-  for (const result of arrayField(record, "tool_results")) {
+  for (const result of arrayField(message, "tool_results")) {
     events.push(normalizeToolResult(result, timestamp, state));
   }
 
@@ -206,8 +220,12 @@ function normalizeToolCall(
 ): NormalizedEvent[] {
   const record = assertRecord(call, "tool call");
   const toolName = readToolName(record);
+  const toolUseId = optionalString(record.id, "tool use id");
+  if (toolUseId !== undefined && toolName !== undefined) {
+    state.toolNamesByUseId.set(toolUseId, toolName);
+  }
   const input = readRecordField(record, ["input", "tool_input", "arguments"], "tool input");
-  const metadata = { toolUseId: optionalString(record.id, "tool use id") };
+  const metadata = { toolUseId };
   const events = [
     makeEvent(state, {
       timestamp,
@@ -231,14 +249,17 @@ function normalizeToolResult(
   state: ParserState
 ): NormalizedEvent {
   const record = isRecord(result) ? result : { content: result };
-  const toolName = optionalString(record.tool_name ?? record.name, "tool name");
+  const toolUseId = optionalString(record.tool_use_id, "tool use id");
+  const toolName =
+    optionalString(record.tool_name ?? record.name, "tool name") ??
+    (toolUseId === undefined ? undefined : state.toolNamesByUseId.get(toolUseId));
   return makeEvent(state, {
     timestamp,
     role: "tool",
     category: categoryForToolResult(toolName),
     content: resultToText(record.content ?? record.output ?? record.result ?? record),
     toolName,
-    metadata: { toolUseId: optionalString(record.tool_use_id, "tool use id") }
+    metadata: { toolUseId }
   });
 }
 
